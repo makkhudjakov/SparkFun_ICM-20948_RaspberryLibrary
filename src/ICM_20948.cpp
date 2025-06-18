@@ -1,3 +1,6 @@
+#include <iostream>
+#include <thread>
+#include <chrono>
 #include "ICM_20948.h"
 
 #include "util/ICM_20948_REGISTERS.h"
@@ -13,129 +16,6 @@ ICM_20948_Status_e ICM_20948_read_SPI(uint8_t reg, uint8_t *buff, uint32_t len, 
 ICM_20948::ICM_20948()
 {
   status = ICM_20948_init_struct(&_device);
-}
-
-void ICM_20948::enableDebugging(Stream &debugPort)
-{
-  _debugSerial = &debugPort; //Grab which port the user wants us to use for debugging
-  _printDebug = true;        //Should we print the commands we send? Good for debugging
-}
-void ICM_20948::disableDebugging(void)
-{
-  _printDebug = false; //Turn off extra print statements
-}
-
-// Debug Printing: based on gfvalvo's flash string helper code:
-// https://forum.arduino.cc/index.php?topic=533118.msg3634809#msg3634809
-
-void ICM_20948::debugPrint(const char *line)
-{
-  doDebugPrint([](const char *ptr) { return *ptr; }, line);
-}
-
-void ICM_20948::debugPrint(const __FlashStringHelper *line)
-{
-  doDebugPrint([](const char *ptr) { return (char)pgm_read_byte_near(ptr); },
-               (const char *)line);
-}
-
-void ICM_20948::debugPrintln(const char *line)
-{
-  doDebugPrint([](const char *ptr) { return *ptr; }, line, true);
-}
-
-void ICM_20948::debugPrintln(const __FlashStringHelper *line)
-{
-  doDebugPrint([](const char *ptr) { return (char)pgm_read_byte_near(ptr); },
-               (const char *)line, true);
-}
-
-void ICM_20948::doDebugPrint(char (*funct)(const char *), const char *string, bool newLine)
-{
-  if (_printDebug == false)
-    return; // Bail if debugging is not enabled
-
-  char ch;
-
-  while ((ch = funct(string++)))
-  {
-    _debugSerial->print(ch);
-  }
-
-  if (newLine)
-  {
-    _debugSerial->println();
-  }
-}
-
-void ICM_20948::debugPrintf(int i)
-{
-  if (_printDebug == true)
-    _debugSerial->print(i);
-}
-
-void ICM_20948::debugPrintf(float f)
-{
-  if (_printDebug == true)
-    _debugSerial->print(f);
-}
-
-void ICM_20948::debugPrintStatus(ICM_20948_Status_e stat)
-{
-  switch (stat)
-  {
-  case ICM_20948_Stat_Ok:
-    debugPrint(F("All is well."));
-    break;
-  case ICM_20948_Stat_Err:
-    debugPrint(F("General Error"));
-    break;
-  case ICM_20948_Stat_NotImpl:
-    debugPrint(F("Not Implemented"));
-    break;
-  case ICM_20948_Stat_ParamErr:
-    debugPrint(F("Parameter Error"));
-    break;
-  case ICM_20948_Stat_WrongID:
-    debugPrint(F("Wrong ID"));
-    break;
-  case ICM_20948_Stat_InvalSensor:
-    debugPrint(F("Invalid Sensor"));
-    break;
-  case ICM_20948_Stat_NoData:
-    debugPrint(F("Data Underflow"));
-    break;
-  case ICM_20948_Stat_SensorNotSupported:
-    debugPrint(F("Sensor Not Supported"));
-    break;
-  case ICM_20948_Stat_DMPNotSupported:
-    debugPrint(F("DMP Firmware Not Supported. Is #define ICM_20948_USE_DMP commented in util/ICM_20948_C.h?"));
-    break;
-  case ICM_20948_Stat_DMPVerifyFail:
-    debugPrint(F("DMP Firmware Verification Failed"));
-    break;
-  case ICM_20948_Stat_FIFONoDataAvail:
-    debugPrint(F("No FIFO Data Available"));
-    break;
-  case ICM_20948_Stat_FIFOIncompleteData:
-    debugPrint(F("DMP data in FIFO was incomplete"));
-    break;
-  case ICM_20948_Stat_FIFOMoreDataAvail:
-    debugPrint(F("More FIFO Data Available"));
-    break;
-  case ICM_20948_Stat_UnrecognisedDMPHeader:
-    debugPrint(F("Unrecognised DMP Header"));
-    break;
-  case ICM_20948_Stat_UnrecognisedDMPHeader2:
-    debugPrint(F("Unrecognised DMP Header2"));
-    break;
-  case ICM_20948_Stat_InvalDMPRegister:
-    debugPrint(F("Invalid DMP Register"));
-    break;
-  default:
-    debugPrint(F("Unknown Status"));
-    break;
-  }
 }
 
 ICM_20948_AGMT_t ICM_20948::getAGMT(void)
@@ -643,9 +523,7 @@ ICM_20948_Status_e ICM_20948::checkID(void)
   status = ICM_20948_check_id(&_device);
   if (status != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::checkID: ICM_20948_check_id returned: "));
-    debugPrintStatus(status);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::checkID: ICM_20948_check_id returned: " << statusString(status) << std::endl;
   }
   return status;
 }
@@ -674,9 +552,7 @@ bool ICM_20948::isConnected(void)
   {
     return true;
   }
-  debugPrint(F("ICM_20948::isConnected: checkID returned: "));
-  debugPrintStatus(status);
-  debugPrintln(F(""));
+  std::cout << "ICM_20948::isConnected: checkID returned: " << statusString(status) << std::endl;
   return false;
 }
 
@@ -684,7 +560,7 @@ bool ICM_20948::isConnected(void)
 ICM_20948_Status_e ICM_20948::setSampleMode(uint8_t sensor_id_bm, uint8_t lp_config_cycle_mode)
 {
   status = ICM_20948_set_sample_mode(&_device, (ICM_20948_InternalSensorID_bm)sensor_id_bm, (ICM_20948_LP_CONFIG_CYCLE_e)lp_config_cycle_mode);
-  delay(1); // Give the ICM20948 time to change the sample mode (see issue #8)
+  std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Give the ICM20948 time to change the sample mode (see issue #8)
   return status;
 }
 
@@ -1119,9 +995,7 @@ uint8_t ICM_20948::i2cMasterSingleR(uint8_t addr, uint8_t reg)
   status = ICM_20948_i2c_master_single_r(&_device, addr, reg, &data);
   if (status != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::i2cMasterSingleR: ICM_20948_i2c_master_single_r returned: "));
-    debugPrintStatus(status);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::i2cMasterSingleR: ICM_20948_i2c_master_single_r returned: " << statusString(status) << std::endl;
   }
   return data;
 }
@@ -1133,9 +1007,7 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = checkID();
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: checkID returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: checkID returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1143,20 +1015,16 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = swReset();
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: swReset returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: swReset returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
-  delay(50);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
   retval = sleep(false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: sleep returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: sleep returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1164,9 +1032,7 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = lowPower(false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: lowPower returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: lowPower returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1174,25 +1040,21 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = startupMagnetometer(minimal); // Pass the minimal startup flag to startupMagnetometer
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: startupMagnetometer returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: startupMagnetometer returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
 
   if (minimal) // Return now if minimal is true
   {
-    debugPrintln(F("ICM_20948::startupDefault: minimal startup complete!"));
+    std::cout << "ICM_20948::startupDefault: minimal startup complete!" << std::endl;
     return status;
   }
 
   retval = setSampleMode((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), ICM_20948_Sample_Mode_Continuous); // options: ICM_20948_Sample_Mode_Continuous or ICM_20948_Sample_Mode_Cycled
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: setSampleMode returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: setSampleMode returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   } // sensors: 	ICM_20948_Internal_Acc, ICM_20948_Internal_Gyr, ICM_20948_Internal_Mst
@@ -1203,9 +1065,9 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), FSS);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: setFullScale returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: setFullScale returned: " <<
+    statusString(retval)
+    << std::endl;
     status = retval;
     return status;
   }
@@ -1216,9 +1078,9 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = setDLPFcfg((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), dlpcfg);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: setDLPFcfg returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: setDLPFcfg returned: " <<
+    statusString(retval)
+    << std::endl;
     status = retval;
     return status;
   }
@@ -1226,9 +1088,9 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = enableDLPF(ICM_20948_Internal_Acc, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: enableDLPF (Acc) returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: enableDLPF (Acc) returned: " <<
+    statusString(retval)
+    << std::endl;
     status = retval;
     return status;
   }
@@ -1236,9 +1098,9 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = enableDLPF(ICM_20948_Internal_Gyr, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupDefault: enableDLPF (Gyr) returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupDefault: enableDLPF (Gyr) returned: " <<
+    statusString(retval)
+    << std::endl;
     status = retval;
     return status;
   }
@@ -1358,17 +1220,11 @@ ICM_20948_Status_e ICM_20948::enableDMPSensor(enum inv_icm20948_sensor sensor, b
   if (_device._dmp_firmware_available == true) // Should we attempt to enable the sensor?
   {
     status = inv_icm20948_enable_dmp_sensor(&_device, sensor, enable == true ? 1 : 0);
-    debugPrint(F("ICM_20948::enableDMPSensor:  _enabled_Android_0: "));
-    debugPrintf((int)_device._enabled_Android_0);
-    debugPrint(F("  _enabled_Android_1: "));
-    debugPrintf((int)_device._enabled_Android_1);
-    debugPrint(F("  _dataOutCtl1: "));
-    debugPrintf((int)_device._dataOutCtl1);
-    debugPrint(F("  _dataOutCtl2: "));
-    debugPrintf((int)_device._dataOutCtl2);
-    debugPrint(F("  _dataRdyStatus: "));
-    debugPrintf((int)_device._dataRdyStatus);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::enableDMPSensor:  _enabled_Android_0: " << _device._enabled_Android_0 
+              << "  _enabled_Android_1: " << _device._enabled_Android_1 
+              << "  _dataOutCtl1: " << _device._dataOutCtl1 
+              << "  _dataOutCtl2: " << _device._dataOutCtl2 
+              << "  _dataRdyStatus: " << _device._dataRdyStatus << std::endl;
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
@@ -1379,13 +1235,9 @@ ICM_20948_Status_e ICM_20948::enableDMPSensorInt(enum inv_icm20948_sensor sensor
   if (_device._dmp_firmware_available == true) // Should we attempt to enable the sensor interrupt?
   {
     status = inv_icm20948_enable_dmp_sensor_int(&_device, sensor, enable == true ? 1 : 0);
-    debugPrint(F("ICM_20948::enableDMPSensorInt:  _enabled_Android_intr_0: "));
-    debugPrintf((int)_device._enabled_Android_intr_0);
-    debugPrint(F("  _enabled_Android_intr_1: "));
-    debugPrintf((int)_device._enabled_Android_intr_1);
-    debugPrint(F("  _dataIntrCtl: "));
-    debugPrintf((int)_device._dataIntrCtl);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::enableDMPSensorInt:  _enabled_Android_intr_0: " << _device._enabled_Android_intr_0 
+              << "  _enabled_Android_intr_1: " << _device._enabled_Android_intr_1 
+              << "  _dataIntrCtl: " << _device._dataIntrCtl << std::endl;
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
@@ -1441,11 +1293,7 @@ ICM_20948_Status_e ICM_20948::setGyroSF(unsigned char div, int gyro_level)
   if (_device._dmp_firmware_available == true) // Should we attempt to set the Gyro SF?
   {
     status = inv_icm20948_set_gyro_sf(&_device, div, gyro_level);
-    debugPrint(F("ICM_20948::setGyroSF:  pll: "));
-    debugPrintf((int)_device._gyroSFpll);
-    debugPrint(F("  Gyro SF is: "));
-    debugPrintf((int)_device._gyroSF);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::setGyroSF:  pll: " << _device._gyroSFpll << "  Gyro SF is: " << _device._gyroSF << std::endl;
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
@@ -1459,7 +1307,7 @@ ICM_20948_Status_e ICM_20948::initializeDMP(void)
   // First, let's check if the DMP is available
   if (_device._dmp_firmware_available != true)
   {
-    debugPrint(F("ICM_20948::startupDMP: DMP is not available. Please check that you have uncommented line 29 (#define ICM_20948_USE_DMP) in ICM_20948_C.h..."));
+    std::cout << "ICM_20948::startupDMP: DMP is not available. Please check that you have uncommented line 29 (#define ICM_20948_USE_DMP) in ICM_20948_C.h..." << std::endl;
     return ICM_20948_Stat_DMPNotSupported;
   }
 
@@ -1764,9 +1612,7 @@ ICM_20948_Status_e ICM_20948_I2C::begin(TwoWire &wirePort, bool ad0val, uint8_t 
   status = startupDefault(_device._dmp_firmware_available);
   if (status != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948_I2C::begin: startupDefault returned: "));
-    debugPrintStatus(status);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948_I2C::begin: startupDefault returned: " << statusString(status) << std::endl;
   }
   return status;
 }
@@ -1794,31 +1640,24 @@ ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
 
     i2cMasterReset(); //Otherwise, reset the master I2C and try again
 
-    delay(10);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
   if (tries == MAX_MAGNETOMETER_STARTS)
   {
-    debugPrint(F("ICM_20948::startupMagnetometer: reached MAX_MAGNETOMETER_STARTS ("));
-    debugPrintf((int)MAX_MAGNETOMETER_STARTS);
-    debugPrintln(F("). Returning ICM_20948_Stat_WrongID"));
+    std::cout << "ICM_20948::startupMagnetometer: reached MAX_MAGNETOMETER_STARTS (" << MAX_MAGNETOMETER_STARTS << "). Returning ICM_20948_Stat_WrongID" << std::endl;
     status = ICM_20948_Stat_WrongID;
     return status;
   }
   else
   {
-    debugPrint(F("ICM_20948::startupMagnetometer: successful magWhoIAm after "));
-    debugPrintf((int)tries);
-    if (tries == 1)
-      debugPrintln(F(" try"));
-    else
-      debugPrintln(F(" tries"));
+    std::cout << "ICM_20948::startupMagnetometer: successful magWhoIAm after " << tries << ((tries == 1) ? " try" : " tries") << std::endl;
   }
 
   //Return now if minimal is true. The mag will be configured manually for the DMP
   if (minimal) // Return now if minimal is true
   {
-    debugPrintln(F("ICM_20948::startupMagnetometer: minimal startup complete!"));
+    std::cout << "ICM_20948::startupMagnetometer: minimal startup complete!" << std::endl;
     return status;
   }
 
@@ -1829,9 +1668,7 @@ ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
   retval = writeMag(AK09916_REG_CNTL2, (uint8_t *)&reg);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupMagnetometer: writeMag returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupMagnetometer: writeMag returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1839,9 +1676,7 @@ ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
   retval = i2cControllerConfigurePeripheral(0, MAG_AK09916_I2C_ADDR, AK09916_REG_ST1, 9, true, true, false, false, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::startupMagnetometer: i2cMasterConfigurePeripheral returned: "));
-    debugPrintStatus(retval);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::startupMagnetometer: i2cMasterConfigurePeripheral returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1860,11 +1695,7 @@ ICM_20948_Status_e ICM_20948::magWhoIAm(void)
   retval = status;
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::magWhoIAm: whoiam1: "));
-    debugPrintf((int)whoiam1);
-    debugPrint(F(" (should be 72) readMag set status to: "));
-    debugPrintStatus(status);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::magWhoIAm: whoiam1: " << whoiam1  << " (should be 72) readMag set status to: " << statusString(status) << std::endl;
     return retval;
   }
   whoiam2 = readMag(AK09916_REG_WIA2);
@@ -1873,13 +1704,7 @@ ICM_20948_Status_e ICM_20948::magWhoIAm(void)
   retval = status;
   if (retval != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948::magWhoIAm: whoiam1: "));
-    debugPrintf((int)whoiam1);
-    debugPrint(F(" (should be 72) whoiam2: "));
-    debugPrintf((int)whoiam2);
-    debugPrint(F(" (should be 9) readMag set status to: "));
-    debugPrintStatus(status);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948::magWhoIAm: whoiam1: " << whoiam1  << " (should be 72) whoiam2: " << whoiam2 << " (should be 9) readMag set status to: " << statusString(status) << std::endl;
     return retval;
   }
 
@@ -1890,12 +1715,7 @@ ICM_20948_Status_e ICM_20948::magWhoIAm(void)
     return status;
   }
 
-  debugPrint(F("ICM_20948::magWhoIAm: whoiam1: "));
-  debugPrintf((int)whoiam1);
-  debugPrint(F(" (should be 72) whoiam2: "));
-  debugPrintf((int)whoiam2);
-  debugPrintln(F(" (should be 9). Returning ICM_20948_Stat_WrongID"));
-
+  std::cout << "ICM_20948::magWhoIAm: whoiam1: " << whoiam1 << " (should be 72) whoiam2: " << whoiam2 << " (should be 9). Returning ICM_20948_Stat_WrongID" << std::endl;
   retval = ICM_20948_Stat_WrongID;
   status = retval;
   return status;
@@ -1961,9 +1781,7 @@ ICM_20948_Status_e ICM_20948_SPI::begin(uint8_t csPin, SPIClass &spiPort, uint32
   status = startupDefault(_device._dmp_firmware_available);
   if (status != ICM_20948_Stat_Ok)
   {
-    debugPrint(F("ICM_20948_SPI::begin: startupDefault returned: "));
-    debugPrintStatus(status);
-    debugPrintln(F(""));
+    std::cout << "ICM_20948_SPI::begin: startupDefault returned: " << statusString(status) << std::endl;
   }
 
   return status;
@@ -1993,10 +1811,10 @@ ICM_20948_Status_e ICM_20948_write_I2C(uint8_t reg, uint8_t *data, uint32_t len,
   //     _i2c->write(reg + indi);
   //     _i2c->write(*(data + indi) );
   //     _i2c->endTransmission();
-  //     delay(10);
+  //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   // }
 
-  // delay(10);
+  // std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   return ICM_20948_Stat_Ok;
 }

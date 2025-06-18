@@ -10,19 +10,12 @@ A C++ interface to the ICM-20948
 #include "util/ICM_20948_C.h" // The C backbone. ICM_20948_USE_DMP is defined in here.
 #include "util/AK09916_REGISTERS.h"
 
-#include "Arduino.h" // Arduino support
-#include "Wire.h"
-#include "SPI.h"
-
 #define ICM_20948_ARD_UNUSED_PIN 0xFF
 
 // Base
 class ICM_20948
 {
 private:
-  Stream *_debugSerial;     //The stream to send debug messages to if enabled
-  bool _printDebug = false; //Flag to print the serial commands we are sending to the Serial port for debug
-
   const uint8_t MAX_MAGNETOMETER_STARTS = 10; // This replaces maxTries
 
 protected:
@@ -35,42 +28,6 @@ protected:
 
 public:
   ICM_20948(); // Constructor
-
-// Enable debug messages using the chosen Serial port (Stream)
-// Boards like the RedBoard Turbo use SerialUSB (not Serial).
-// But other boards like the SAMD51 Thing Plus use Serial (not SerialUSB).
-// These lines let the code compile cleanly on as many SAMD boards as possible.
-#if defined(ARDUINO_ARCH_SAMD) // Is this a SAMD board?
-#if defined(USB_VID) // Is the USB Vendor ID defined?
-#if (USB_VID == 0x1B4F) // Is this a SparkFun board?
-#if !defined(ARDUINO_SAMD51_THING_PLUS) & !defined(ARDUINO_SAMD51_MICROMOD) // If it is not a SAMD51 Thing Plus or SAMD51 MicroMod
-  void enableDebugging(Stream &debugPort = SerialUSB); //Given a port to print to, enable debug messages.
-#else
-  void enableDebugging(Stream &debugPort = Serial); //Given a port to print to, enable debug messages.
-#endif
-#else
-  void enableDebugging(Stream &debugPort = Serial); //Given a port to print to, enable debug messages.
-#endif
-#else
-  void enableDebugging(Stream &debugPort = Serial); //Given a port to print to, enable debug messages.
-#endif
-#else
-  void enableDebugging(Stream &debugPort = Serial); //Given a port to print to, enable debug messages.
-#endif
-
-  void disableDebugging(void); //Turn off debug statements
-
-  void debugPrintStatus(ICM_20948_Status_e stat);
-
-  // gfvalvo's flash string helper code: https://forum.arduino.cc/index.php?topic=533118.msg3634809#msg3634809
-  void debugPrint(const char *);
-  void debugPrint(const __FlashStringHelper *);
-  void debugPrintln(const char *);
-  void debugPrintln(const __FlashStringHelper *);
-  void doDebugPrint(char (*)(const char *), const char *, bool newLine = false);
-
-  void debugPrintf(int i);
-  void debugPrintf(float f);
 
   ICM_20948_AGMT_t agmt;          // Acceleometer, Gyroscope, Magenetometer, and Temperature data
   ICM_20948_AGMT_t getAGMT(void); // Updates the agmt field in the object and also returns a copy directly
