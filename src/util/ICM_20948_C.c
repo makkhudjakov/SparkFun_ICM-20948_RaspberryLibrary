@@ -1,3 +1,4 @@
+#include <string.h>
 #include "ICM_20948_C.h"
 #include "ICM_20948_REGISTERS.h"
 #include "AK09916_REGISTERS.h"

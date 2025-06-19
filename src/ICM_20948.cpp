@@ -9,13 +9,43 @@
 // Forward Declarations
 ICM_20948_Status_e ICM_20948_write_I2C(uint8_t reg, uint8_t *data, uint32_t len, void *user);
 ICM_20948_Status_e ICM_20948_read_I2C(uint8_t reg, uint8_t *buff, uint32_t len, void *user);
-ICM_20948_Status_e ICM_20948_write_SPI(uint8_t reg, uint8_t *buff, uint32_t len, void *user);
-ICM_20948_Status_e ICM_20948_read_SPI(uint8_t reg, uint8_t *buff, uint32_t len, void *user);
 
 // Base
-ICM_20948::ICM_20948()
+ICM_20948::ICM_20948(const std::string& port, uint8_t address) : _i2c(port), _addr(address)
 {
   status = ICM_20948_init_struct(&_device);
+    // Set up the serif
+  _serif.write = ICM_20948_write_I2C;
+  _serif.read = ICM_20948_read_I2C;
+  _serif.user = (void *)this; // refer to yourself in the user field
+
+  // Link the serif
+  _device._serif = &_serif;
+
+#if defined(ICM_20948_USE_DMP)
+  _device._dmp_firmware_available = true; // Initialize _dmp_firmware_available
+#else
+  _device._dmp_firmware_available = false; // Initialize _dmp_firmware_available
+#endif
+
+  _device._firmware_loaded = false; // Initialize _firmware_loaded
+  _device._last_bank = 255;         // Initialize _last_bank. Make it invalid. It will be set by the first call of ICM_20948_set_bank.
+  _device._last_mems_bank = 255;    // Initialize _last_mems_bank. Make it invalid. It will be set by the first call of inv_icm20948_write_mems.
+  _device._gyroSF = 0;              // Use this to record the GyroSF, calculated by inv_icm20948_set_gyro_sf
+  _device._gyroSFpll = 0;
+  _device._enabled_Android_0 = 0;      // Keep track of which Android sensors are enabled: 0-31
+  _device._enabled_Android_1 = 0;      // Keep track of which Android sensors are enabled: 32-
+  _device._enabled_Android_intr_0 = 0; // Keep track of which Android sensor interrupts are enabled: 0-31
+  _device._enabled_Android_intr_1 = 0; // Keep track of which Android sensor interrupts are enabled: 32-
+
+  // Perform default startup
+  // Do a minimal startupDefault if using the DMP. User can always call startupDefault(false) manually if required.
+  status = startupDefault(_device._dmp_firmware_available);
+  if (status != ICM_20948_Stat_Ok)
+  {
+    std::string res = "ICM_20948_I2C::begin: startupDefault returned: " + statusString(status) + "\r\n";
+    throw std::runtime_error(res);
+  }
 }
 
 ICM_20948_AGMT_t ICM_20948::getAGMT(void)
@@ -418,8 +448,9 @@ float ICM_20948::getTempC(int16_t val)
   return (((float)val - 21) / 333.87) + 21;
 }
 
-const char *ICM_20948::statusString(ICM_20948_Status_e stat)
+std::string ICM_20948::statusString(ICM_20948_Status_e stat)
 {
+  std::string result = "";
   ICM_20948_Status_e val;
   if (stat == ICM_20948_Stat_NUM)
   {
@@ -432,59 +463,59 @@ const char *ICM_20948::statusString(ICM_20948_Status_e stat)
 
   switch (val)
   {
-  case ICM_20948_Stat_Ok:
-    return "All is well.";
-    break;
-  case ICM_20948_Stat_Err:
-    return "General Error";
-    break;
-  case ICM_20948_Stat_NotImpl:
-    return "Not Implemented";
-    break;
-  case ICM_20948_Stat_ParamErr:
-    return "Parameter Error";
-    break;
-  case ICM_20948_Stat_WrongID:
-    return "Wrong ID";
-    break;
-  case ICM_20948_Stat_InvalSensor:
-    return "Invalid Sensor";
-    break;
-  case ICM_20948_Stat_NoData:
-    return "Data Underflow";
-    break;
-  case ICM_20948_Stat_SensorNotSupported:
-    return "Sensor Not Supported";
-    break;
-  case ICM_20948_Stat_DMPNotSupported:
-    return "DMP Firmware Not Supported. Is #define ICM_20948_USE_DMP commented in util/ICM_20948_C.h?";
-    break;
-  case ICM_20948_Stat_DMPVerifyFail:
-    return "DMP Firmware Verification Failed";
-    break;
-  case ICM_20948_Stat_FIFONoDataAvail:
-    return "No FIFO Data Available";
-    break;
-  case ICM_20948_Stat_FIFOIncompleteData:
-    return "DMP data in FIFO was incomplete";
-    break;
-  case ICM_20948_Stat_FIFOMoreDataAvail:
-    return "More FIFO Data Available";
-    break;
-  case ICM_20948_Stat_UnrecognisedDMPHeader:
-    return "Unrecognised DMP Header";
-    break;
-  case ICM_20948_Stat_UnrecognisedDMPHeader2:
-    return "Unrecognised DMP Header2";
-    break;
-  case ICM_20948_Stat_InvalDMPRegister:
-    return "Invalid DMP Register";
-    break;
-  default:
-    return "Unknown Status";
-    break;
+    case ICM_20948_Stat_Ok:
+      result = "All is well.";
+      break;
+    case ICM_20948_Stat_Err:
+      result = "General Error";
+      break;
+    case ICM_20948_Stat_NotImpl:
+      result = "Not Implemented";
+      break;
+    case ICM_20948_Stat_ParamErr:
+      result = "Parameter Error";
+      break;
+    case ICM_20948_Stat_WrongID:
+      result = "Wrong ID";
+      break;
+    case ICM_20948_Stat_InvalSensor:
+      result = "Invalid Sensor";
+      break;
+    case ICM_20948_Stat_NoData:
+      result = "Data Underflow";
+      break;
+    case ICM_20948_Stat_SensorNotSupported:
+      result = "Sensor Not Supported";
+      break;
+    case ICM_20948_Stat_DMPNotSupported:
+      result = "DMP Firmware Not Supported. Is #define ICM_20948_USE_DMP commented in util/ICM_20948_C.h?";
+      break;
+    case ICM_20948_Stat_DMPVerifyFail:
+      result = "DMP Firmware Verification Failed";
+      break;
+    case ICM_20948_Stat_FIFONoDataAvail:
+      result = "No FIFO Data Available";
+      break;
+    case ICM_20948_Stat_FIFOIncompleteData:
+      result = "DMP data in FIFO was incomplete";
+      break;
+    case ICM_20948_Stat_FIFOMoreDataAvail:
+      result = "More FIFO Data Available";
+      break;
+    case ICM_20948_Stat_UnrecognisedDMPHeader:
+      result = "Unrecognised DMP Header";
+      break;
+    case ICM_20948_Stat_UnrecognisedDMPHeader2:
+      result = "Unrecognised DMP Header2";
+      break;
+    case ICM_20948_Stat_InvalDMPRegister:
+      result = "Invalid DMP Register";
+      break;
+    default:
+      result = "Unknown Status";
+      break;
   }
-  return "None";
+  return result;
 }
 
 // Device Level
@@ -1551,72 +1582,6 @@ ICM_20948_Status_e ICM_20948::initializeDMP(void)
   return worstResult;
 }
 
-// I2C
-ICM_20948_I2C::ICM_20948_I2C()
-{
-}
-
-ICM_20948_Status_e ICM_20948_I2C::begin(TwoWire &wirePort, bool ad0val, uint8_t ad0pin)
-{
-  // Associate
-  _ad0 = ad0pin;
-  _i2c = &wirePort;
-  _ad0val = ad0val;
-
-  _addr = ICM_20948_I2C_ADDR_AD0;
-  if (_ad0val)
-  {
-    _addr = ICM_20948_I2C_ADDR_AD1;
-  }
-
-  // Set pinmodes
-  if (_ad0 != ICM_20948_ARD_UNUSED_PIN)
-  {
-    pinMode(_ad0, OUTPUT);
-  }
-
-  // Set pins to default positions
-  if (_ad0 != ICM_20948_ARD_UNUSED_PIN)
-  {
-    digitalWrite(_ad0, _ad0val);
-  }
-
-  // _i2c->begin(); // Moved into user's sketch
-
-  // Set up the serif
-  _serif.write = ICM_20948_write_I2C;
-  _serif.read = ICM_20948_read_I2C;
-  _serif.user = (void *)this; // refer to yourself in the user field
-
-  // Link the serif
-  _device._serif = &_serif;
-
-#if defined(ICM_20948_USE_DMP)
-  _device._dmp_firmware_available = true; // Initialize _dmp_firmware_available
-#else
-  _device._dmp_firmware_available = false; // Initialize _dmp_firmware_available
-#endif
-
-  _device._firmware_loaded = false; // Initialize _firmware_loaded
-  _device._last_bank = 255;         // Initialize _last_bank. Make it invalid. It will be set by the first call of ICM_20948_set_bank.
-  _device._last_mems_bank = 255;    // Initialize _last_mems_bank. Make it invalid. It will be set by the first call of inv_icm20948_write_mems.
-  _device._gyroSF = 0;              // Use this to record the GyroSF, calculated by inv_icm20948_set_gyro_sf
-  _device._gyroSFpll = 0;
-  _device._enabled_Android_0 = 0;      // Keep track of which Android sensors are enabled: 0-31
-  _device._enabled_Android_1 = 0;      // Keep track of which Android sensors are enabled: 32-
-  _device._enabled_Android_intr_0 = 0; // Keep track of which Android sensor interrupts are enabled: 0-31
-  _device._enabled_Android_intr_1 = 0; // Keep track of which Android sensor interrupts are enabled: 32-
-
-  // Perform default startup
-  // Do a minimal startupDefault if using the DMP. User can always call startupDefault(false) manually if required.
-  status = startupDefault(_device._dmp_firmware_available);
-  if (status != ICM_20948_Stat_Ok)
-  {
-    std::cout << "ICM_20948_I2C::begin: startupDefault returned: " << statusString(status) << std::endl;
-  }
-  return status;
-}
-
 ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
 {
   ICM_20948_Status_e retval = ICM_20948_Stat_Ok;
@@ -1721,72 +1686,6 @@ ICM_20948_Status_e ICM_20948::magWhoIAm(void)
   return status;
 }
 
-// SPI
-
-// SPISettings ICM_20948_SPI_DEFAULT_SETTINGS(ICM_20948_SPI_DEFAULT_FREQ, ICM_20948_SPI_DEFAULT_ORDER, ICM_20948_SPI_DEFAULT_MODE);
-
-ICM_20948_SPI::ICM_20948_SPI()
-{
-}
-
-ICM_20948_Status_e ICM_20948_SPI::begin(uint8_t csPin, SPIClass &spiPort, uint32_t SPIFreq)
-{
-  if (SPIFreq > 7000000)
-    SPIFreq = 7000000; // Limit SPI frequency to 7MHz
-
-  // Associate
-  _spi = &spiPort;
-  _spisettings = SPISettings(SPIFreq, ICM_20948_SPI_DEFAULT_ORDER, ICM_20948_SPI_DEFAULT_MODE);
-  _cs = csPin;
-
-  // Set pinmodes
-  pinMode(_cs, OUTPUT);
-
-  // Set pins to default positions
-  digitalWrite(_cs, HIGH);
-
-  // _spi->begin(); // Moved into user's sketch
-
-  // 'Kickstart' the SPI hardware.
-  _spi->beginTransaction(_spisettings);
-  _spi->transfer(0x00);
-  _spi->endTransaction();
-
-  // Set up the serif
-  _serif.write = ICM_20948_write_SPI;
-  _serif.read = ICM_20948_read_SPI;
-  _serif.user = (void *)this; // refer to yourself in the user field
-
-  // Link the serif
-  _device._serif = &_serif;
-
-#if defined(ICM_20948_USE_DMP)
-  _device._dmp_firmware_available = true; // Initialize _dmp_firmware_available
-#else
-  _device._dmp_firmware_available = false; // Initialize _dmp_firmware_available
-#endif
-
-  _device._firmware_loaded = false; // Initialize _firmware_loaded
-  _device._last_bank = 255;         // Initialize _last_bank. Make it invalid. It will be set by the first call of ICM_20948_set_bank.
-  _device._last_mems_bank = 255;    // Initialize _last_mems_bank. Make it invalid. It will be set by the first call of inv_icm20948_write_mems.
-  _device._gyroSF = 0;              // Use this to record the GyroSF, calculated by inv_icm20948_set_gyro_sf
-  _device._gyroSFpll = 0;
-  _device._enabled_Android_0 = 0;      // Keep track of which Android sensors are enabled: 0-31
-  _device._enabled_Android_1 = 0;      // Keep track of which Android sensors are enabled: 32-
-  _device._enabled_Android_intr_0 = 0; // Keep track of which Android sensor interrupts are enabled: 0-31
-  _device._enabled_Android_intr_1 = 0; // Keep track of which Android sensor interrupts are enabled: 32-
-
-  // Perform default startup
-  // Do a minimal startupDefault if using the DMP. User can always call startupDefault(false) manually if required.
-  status = startupDefault(_device._dmp_firmware_available);
-  if (status != ICM_20948_Stat_Ok)
-  {
-    std::cout << "ICM_20948_SPI::begin: startupDefault returned: " << statusString(status) << std::endl;
-  }
-
-  return status;
-}
-
 // serif functions for the I2C and SPI classes
 ICM_20948_Status_e ICM_20948_write_I2C(uint8_t reg, uint8_t *data, uint32_t len, void *user)
 {
@@ -1794,29 +1693,15 @@ ICM_20948_Status_e ICM_20948_write_I2C(uint8_t reg, uint8_t *data, uint32_t len,
   {
     return ICM_20948_Stat_ParamErr;
   }
-  TwoWire *_i2c = ((ICM_20948_I2C *)user)->_i2c; // Cast user field to ICM_20948_I2C type and extract the I2C interface pointer
-  uint8_t addr = ((ICM_20948_I2C *)user)->_addr;
-  if (_i2c == NULL)
-  {
-    return ICM_20948_Stat_ParamErr;
+  auto i2c = ((ICM_20948*)user)->getI2C(); // Cast user field to ICM_20948_I2C type and extract the I2C interface pointer
+  uint8_t addr = ((ICM_20948*)user)->getAddress();
+  if(i2c.writeReg(addr, reg, data, (uint8_t)len)) {
+    return ICM_20948_Stat_Ok;
   }
-
-  _i2c->beginTransmission(addr);
-  _i2c->write(reg);
-  _i2c->write(data, (uint8_t)len);
-  _i2c->endTransmission();
-
-  // for( uint32_t indi = 0; indi < len; indi++ ){
-  //     _i2c->beginTransmission(addr);
-  //     _i2c->write(reg + indi);
-  //     _i2c->write(*(data + indi) );
-  //     _i2c->endTransmission();
-  //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  // }
-
+  else {
+    return ICM_20948_Stat_Err;
+  }
   // std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-  return ICM_20948_Stat_Ok;
 }
 
 ICM_20948_Status_e ICM_20948_read_I2C(uint8_t reg, uint8_t *buff, uint32_t len, void *user)
@@ -1825,107 +1710,13 @@ ICM_20948_Status_e ICM_20948_read_I2C(uint8_t reg, uint8_t *buff, uint32_t len, 
   {
     return ICM_20948_Stat_ParamErr;
   }
-  TwoWire *_i2c = ((ICM_20948_I2C *)user)->_i2c;
-  uint8_t addr = ((ICM_20948_I2C *)user)->_addr;
-  if (_i2c == NULL)
-  {
-    return ICM_20948_Stat_ParamErr;
-  }
+  auto i2c = ((ICM_20948*)user)->getI2C(); // Cast user field to ICM_20948_I2C type and extract the I2C interface pointer
+  uint8_t addr = ((ICM_20948*)user)->getAddress();
 
-  _i2c->beginTransmission(addr);
-  _i2c->write(reg);
-  _i2c->endTransmission(false); // Send repeated start
-
-  uint32_t num_received = _i2c->requestFrom(addr, len);
-
-  if (num_received == len)
-  {
-    for (uint8_t i = 0; i < len; i++)
-    {
-      buff[i] = _i2c->read();
-    }
+  if(i2c.readReg(addr, reg, buff, (uint8_t)len)) {
     return ICM_20948_Stat_Ok;
   }
-  else
-  {
-    return ICM_20948_Stat_NoData;
+  else {
+    return ICM_20948_Stat_Err;
   }
-
-  if (len != 0)
-  {
-    return ICM_20948_Stat_NoData;
-  }
-  return ICM_20948_Stat_Ok;
 }
-
-ICM_20948_Status_e ICM_20948_write_SPI(uint8_t reg, uint8_t *data, uint32_t len, void *user)
-{
-  if (user == NULL)
-  {
-    return ICM_20948_Stat_ParamErr;
-  }
-  SPIClass *_spi = ((ICM_20948_SPI *)user)->_spi; // Cast user field to ICM_20948_SPI type and extract the SPI interface pointer
-  uint8_t cs = ((ICM_20948_SPI *)user)->_cs;
-  SPISettings spisettings = ((ICM_20948_SPI *)user)->_spisettings;
-  if (_spi == NULL)
-  {
-    return ICM_20948_Stat_ParamErr;
-  }
-
-  // 'Kickstart' the SPI hardware. This is a fairly high amount of overhead, but it guarantees that the lines will start in the correct states even when sharing the SPI bus with devices that use other modes
-  _spi->beginTransaction(spisettings);
-  _spi->transfer(0x00);
-  _spi->endTransaction();
-
-  _spi->beginTransaction(spisettings);
-  digitalWrite(cs, LOW);
-  // delayMicroseconds(5);
-  _spi->transfer(((reg & 0x7F) | 0x00));
-  //  SPI.transfer(data, len); // Can't do this thanks to Arduino's poor implementation
-  for (uint32_t indi = 0; indi < len; indi++)
-  {
-    _spi->transfer(*(data + indi));
-  }
-  // delayMicroseconds(5);
-  digitalWrite(cs, HIGH);
-  _spi->endTransaction();
-
-  return ICM_20948_Stat_Ok;
-}
-
-ICM_20948_Status_e ICM_20948_read_SPI(uint8_t reg, uint8_t *buff, uint32_t len, void *user)
-{
-  if (user == NULL)
-  {
-    return ICM_20948_Stat_ParamErr;
-  }
-  SPIClass *_spi = ((ICM_20948_SPI *)user)->_spi;
-  uint8_t cs = ((ICM_20948_SPI *)user)->_cs;
-  SPISettings spisettings = ((ICM_20948_SPI *)user)->_spisettings;
-  if (_spi == NULL)
-  {
-    return ICM_20948_Stat_ParamErr;
-  }
-
-  // 'Kickstart' the SPI hardware. This is a fairly high amount of overhead, but it guarantees that the lines will start in the correct states
-  _spi->beginTransaction(spisettings);
-  _spi->transfer(0x00);
-  _spi->endTransaction();
-
-  _spi->beginTransaction(spisettings);
-  digitalWrite(cs, LOW);
-  //   delayMicroseconds(5);
-  _spi->transfer(((reg & 0x7F) | 0x80));
-  //  SPI.transfer(data, len); // Can't do this thanks to Arduino's stupid implementation
-  for (uint32_t indi = 0; indi < len; indi++)
-  {
-    *(buff + indi) = _spi->transfer(0x00);
-  }
-  //   delayMicroseconds(5);
-  digitalWrite(cs, HIGH);
-  _spi->endTransaction();
-
-  return ICM_20948_Stat_Ok;
-}
-
-

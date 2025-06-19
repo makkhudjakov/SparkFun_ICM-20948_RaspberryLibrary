@@ -9,25 +9,34 @@ A C++ interface to the ICM-20948
 
 #include "util/ICM_20948_C.h" // The C backbone. ICM_20948_USE_DMP is defined in here.
 #include "util/AK09916_REGISTERS.h"
-
-#define ICM_20948_ARD_UNUSED_PIN 0xFF
+#include "I2C.h"
 
 // Base
 class ICM_20948
 {
 private:
+  I2CMaster _i2c;
+  uint8_t _addr;
+  ICM_20948_Device_t _device;
+  ICM_20948_Serif_t _serif;
   const uint8_t MAX_MAGNETOMETER_STARTS = 10; // This replaces maxTries
 
 protected:
-  ICM_20948_Device_t _device;
-
   float getTempC(int16_t val);
   float getGyrDPS(int16_t axis_val);
   float getAccMG(int16_t axis_val);
   float getMagUT(int16_t axis_val);
 
 public:
-  ICM_20948(); // Constructor
+  ICM_20948(const std::string& port, uint8_t address); // Constructor
+  I2CMaster& getI2C() 
+  {
+    return _i2c;
+  }
+  uint8_t getAddress()
+  {
+    return _addr;
+  }
 
   ICM_20948_AGMT_t agmt;          // Acceleometer, Gyroscope, Magenetometer, and Temperature data
   ICM_20948_AGMT_t getAGMT(void); // Updates the agmt field in the object and also returns a copy directly
@@ -47,7 +56,7 @@ public:
   float temp(void); // degrees celsius
 
   ICM_20948_Status_e status;                                              // Status from latest operation
-  const char *statusString(ICM_20948_Status_e stat = ICM_20948_Stat_NUM); // Returns a human-readable status message. Defaults to status member, but prints string for supplied status if supplied
+  std::string statusString(ICM_20948_Status_e stat = ICM_20948_Stat_NUM); // Returns a human-readable status message. Defaults to status member, but prints string for supplied status if supplied
 
   // Device Level
   ICM_20948_Status_e setBank(uint8_t bank);                                // Sets the bank
@@ -193,52 +202,6 @@ public:
   ICM_20948_Status_e readDMPdataFromFIFO(icm_20948_DMP_data_t *data);
   ICM_20948_Status_e setGyroSF(unsigned char div, int gyro_level);
   ICM_20948_Status_e initializeDMP(void) __attribute__((weak)); // Combine all of the DMP start-up code in one place. Can be overwritten if required
-};
-
-// I2C
-
-// Forward declarations of TwoWire and Wire for board/variant combinations that don't have a default 'SPI'
-//class TwoWire; // Commented by PaulZC 21/2/8 - this was causing compilation to fail on the Arduino NANO 33 BLE
-//extern TwoWire Wire; // Commented by PaulZC 21/2/8 - this was causing compilation to fail on the Arduino NANO 33 BLE
-
-class ICM_20948_I2C : public ICM_20948
-{
-private:
-protected:
-public:
-  TwoWire *_i2c;
-  uint8_t _addr;
-  uint8_t _ad0;
-  bool _ad0val;
-  ICM_20948_Serif_t _serif;
-
-  ICM_20948_I2C(); // Constructor
-
-  virtual ICM_20948_Status_e begin(TwoWire &wirePort = Wire, bool ad0val = true, uint8_t ad0pin = ICM_20948_ARD_UNUSED_PIN);
-};
-
-// SPI
-#define ICM_20948_SPI_DEFAULT_FREQ 4000000
-#define ICM_20948_SPI_DEFAULT_ORDER MSBFIRST
-#define ICM_20948_SPI_DEFAULT_MODE SPI_MODE0
-
-// Forward declarations of SPIClass and SPI for board/variant combinations that don't have a default 'SPI'
-//class SPIClass; // Commented by PaulZC 21/2/8 - this was causing compilation to fail on the Arduino NANO 33 BLE
-//extern SPIClass SPI; // Commented by PaulZC 21/2/8 - this was causing compilation to fail on the Arduino NANO 33 BLE
-
-class ICM_20948_SPI : public ICM_20948
-{
-private:
-protected:
-public:
-  SPIClass *_spi;
-  SPISettings _spisettings;
-  uint8_t _cs;
-  ICM_20948_Serif_t _serif;
-
-  ICM_20948_SPI(); // Constructor
-
-  ICM_20948_Status_e begin(uint8_t csPin, SPIClass &spiPort = SPI, uint32_t SPIFreq = ICM_20948_SPI_DEFAULT_FREQ);
 };
 
 #endif /* _ICM_20948_H_ */
