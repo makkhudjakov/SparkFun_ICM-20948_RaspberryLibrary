@@ -1,0 +1,7 @@
+file(GLOB EXAMPLE_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} */)
+# foreach(example ${EXAMPLE_DIRS})
+#     if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${example})
+#         add_subdirectory(${example})
+#     endif()
+# endforeach()
+add_subdirectory(DMP_Quat9)
