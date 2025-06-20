@@ -1322,26 +1322,14 @@ ICM_20948_Status_e ICM_20948::setGyroSF(unsigned char div, int gyro_level)
   return ICM_20948_Stat_DMPNotSupported;
 }
 
-// Combine all of the DMP start-up code from the earlier DMP examples
-// This function is defined as __attribute__((weak)) so you can overwrite it if you want to,
-//   e.g. to modify the sample rate
+// initializeDMP is a weak function. Let's overwrite it so we can increase the sample rate
 ICM_20948_Status_e ICM_20948::initializeDMP(void)
 {
-  // First, let's check if the DMP is available
-  if (_device._dmp_firmware_available != true)
-  {
-    std::cout << "ICM_20948::startupDMP: DMP is not available. Please check that you have uncommented line 29 (#define ICM_20948_USE_DMP) in ICM_20948_C.h..." << std::endl;
-    return ICM_20948_Stat_DMPNotSupported;
-  }
-
-  ICM_20948_Status_e  worstResult = ICM_20948_Stat_Ok;
-
-#if defined(ICM_20948_USE_DMP)
-
   // The ICM-20948 is awake and ready but hasn't been configured. Let's step through the configuration
   // sequence from InvenSense's _confidential_ Application Note "Programming Sequence for DMP Hardware Functions".
 
   ICM_20948_Status_e  result = ICM_20948_Stat_Ok; // Use result and worstResult to show if the configuration was successful
+  ICM_20948_Status_e  worstResult = ICM_20948_Stat_Ok;
 
   // Normally, when the DMP is not enabled, startupMagnetometer (called by startupDefault, which is called by begin) configures the AK09916 magnetometer
   // to run at 100Hz by setting the CNTL2 register (0x31) to 0x08. Then the ICM20948's I2C_SLV0 is configured to read
@@ -1452,10 +1440,10 @@ ICM_20948_Status_e ICM_20948::initializeDMP(void)
   // Set gyro sample rate divider with GYRO_SMPLRT_DIV
   // Set accel sample rate divider with ACCEL_SMPLRT_DIV_2
   ICM_20948_smplrt_t mySmplrt;
-  mySmplrt.g = 19; // ODR is computed as follows: 1.1 kHz/(1+GYRO_SMPLRT_DIV[7:0]). 19 = 55Hz. InvenSense Nucleo example uses 19 (0x13).
-  mySmplrt.a = 19; // ODR is computed as follows: 1.125 kHz/(1+ACCEL_SMPLRT_DIV[11:0]). 19 = 56.25Hz. InvenSense Nucleo example uses 19 (0x13).
-  //mySmplrt.g = 4; // 225Hz
-  //mySmplrt.a = 4; // 225Hz
+  //mySmplrt.g = 19; // ODR is computed as follows: 1.1 kHz/(1+GYRO_SMPLRT_DIV[7:0]). 19 = 55Hz. InvenSense Nucleo example uses 19 (0x13).
+  //mySmplrt.a = 19; // ODR is computed as follows: 1.125 kHz/(1+ACCEL_SMPLRT_DIV[11:0]). 19 = 56.25Hz. InvenSense Nucleo example uses 19 (0x13).
+  mySmplrt.g = 4; // 225Hz
+  mySmplrt.a = 4; // 225Hz
   //mySmplrt.g = 8; // 112Hz
   //mySmplrt.a = 8; // 112Hz
   result = setSampleRate((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), mySmplrt); if (result > worstResult) worstResult = result;
@@ -1528,7 +1516,7 @@ ICM_20948_Status_e ICM_20948::initializeDMP(void)
   //            0=1125Hz sample rate, 1=562.5Hz sample rate, ... 4=225Hz sample rate, ...
   //            10=102.2727Hz sample rate, ... etc.
   // @param[in] gyro_level 0=250 dps, 1=500 dps, 2=1000 dps, 3=2000 dps
-  result = setGyroSF(19, 3); if (result > worstResult) worstResult = result; // 19 = 55Hz (see above), 3 = 2000dps (see above)
+  result = setGyroSF(4, 3); if (result > worstResult) worstResult = result; // 4 = 225Hz (see above), 3 = 2000dps (see above)
 
   // Configure the Gyro full scale
   // 2000dps : 2^28
@@ -1539,20 +1527,20 @@ ICM_20948_Status_e ICM_20948::initializeDMP(void)
   result = writeDMPmems(GYRO_FULLSCALE, 4, &gyroFullScale[0]); if (result > worstResult) worstResult = result;
 
   // Configure the Accel Only Gain: 15252014 (225Hz) 30504029 (112Hz) 61117001 (56Hz)
-  const unsigned char accelOnlyGain[4] = {0x03, 0xA4, 0x92, 0x49}; // 56Hz
-  //const unsigned char accelOnlyGain[4] = {0x00, 0xE8, 0xBA, 0x2E}; // 225Hz
+  //const unsigned char accelOnlyGain[4] = {0x03, 0xA4, 0x92, 0x49}; // 56Hz
+  const unsigned char accelOnlyGain[4] = {0x00, 0xE8, 0xBA, 0x2E}; // 225Hz
   //const unsigned char accelOnlyGain[4] = {0x01, 0xD1, 0x74, 0x5D}; // 112Hz
   result = writeDMPmems(ACCEL_ONLY_GAIN, 4, &accelOnlyGain[0]); if (result > worstResult) worstResult = result;
 
   // Configure the Accel Alpha Var: 1026019965 (225Hz) 977872018 (112Hz) 882002213 (56Hz)
-  const unsigned char accelAlphaVar[4] = {0x34, 0x92, 0x49, 0x25}; // 56Hz
-  //const unsigned char accelAlphaVar[4] = {0x3D, 0x27, 0xD2, 0x7D}; // 225Hz
+  //const unsigned char accelAlphaVar[4] = {0x34, 0x92, 0x49, 0x25}; // 56Hz
+  const unsigned char accelAlphaVar[4] = {0x3D, 0x27, 0xD2, 0x7D}; // 225Hz
   //const unsigned char accelAlphaVar[4] = {0x3A, 0x49, 0x24, 0x92}; // 112Hz
   result = writeDMPmems(ACCEL_ALPHA_VAR, 4, &accelAlphaVar[0]); if (result > worstResult) worstResult = result;
 
   // Configure the Accel A Var: 47721859 (225Hz) 95869806 (112Hz) 191739611 (56Hz)
-  const unsigned char accelAVar[4] = {0x0B, 0x6D, 0xB6, 0xDB}; // 56Hz
-  //const unsigned char accelAVar[4] = {0x02, 0xD8, 0x2D, 0x83}; // 225Hz
+  //const unsigned char accelAVar[4] = {0x0B, 0x6D, 0xB6, 0xDB}; // 56Hz
+  const unsigned char accelAVar[4] = {0x02, 0xD8, 0x2D, 0x83}; // 225Hz
   //const unsigned char accelAVar[4] = {0x05, 0xB6, 0xDB, 0x6E}; // 112Hz
   result = writeDMPmems(ACCEL_A_VAR, 4, &accelAVar[0]); if (result > worstResult) worstResult = result;
 
@@ -1569,10 +1557,9 @@ ICM_20948_Status_e ICM_20948::initializeDMP(void)
   // This would be the most efficient way of getting the DMP data, instead of polling the FIFO
   //result = intEnableDMP(true); if (result > worstResult) worstResult = result;
 
-#endif
-
   return worstResult;
 }
+
 
 ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
 {
