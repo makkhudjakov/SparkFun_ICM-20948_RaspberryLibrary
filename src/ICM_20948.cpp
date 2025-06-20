@@ -551,12 +551,7 @@ ICM_20948_Status_e ICM_20948::setClockSource(ICM_20948_PWR_MGMT_1_CLKSEL_e sourc
 
 ICM_20948_Status_e ICM_20948::checkID(void)
 {
-  status = ICM_20948_check_id(&_device);
-  if (status != ICM_20948_Stat_Ok)
-  {
-    std::cout << "ICM_20948::checkID: ICM_20948_check_id returned: " << statusString(status) << std::endl;
-  }
-  return status;
+  return ICM_20948_check_id(&_device);
 }
 
 bool ICM_20948::dataReady(void)
@@ -583,7 +578,6 @@ bool ICM_20948::isConnected(void)
   {
     return true;
   }
-  std::cout << "ICM_20948::isConnected: checkID returned: " << statusString(status) << std::endl;
   return false;
 }
 
@@ -1024,10 +1018,6 @@ uint8_t ICM_20948::i2cMasterSingleR(uint8_t addr, uint8_t reg)
 {
   uint8_t data = 0;
   status = ICM_20948_i2c_master_single_r(&_device, addr, reg, &data);
-  if (status != ICM_20948_Stat_Ok)
-  {
-    std::cout << "ICM_20948::i2cMasterSingleR: ICM_20948_i2c_master_single_r returned: " << statusString(status) << std::endl;
-  }
   return data;
 }
 
@@ -1038,7 +1028,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = checkID();
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: checkID returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1046,7 +1035,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = swReset();
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: swReset returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1055,7 +1043,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = sleep(false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: sleep returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1063,7 +1050,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = lowPower(false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: lowPower returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1071,21 +1057,18 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = startupMagnetometer(minimal); // Pass the minimal startup flag to startupMagnetometer
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: startupMagnetometer returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
 
   if (minimal) // Return now if minimal is true
   {
-    std::cout << "ICM_20948::startupDefault: minimal startup complete!" << std::endl;
     return status;
   }
 
   retval = setSampleMode((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), ICM_20948_Sample_Mode_Continuous); // options: ICM_20948_Sample_Mode_Continuous or ICM_20948_Sample_Mode_Cycled
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: setSampleMode returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   } // sensors: 	ICM_20948_Internal_Acc, ICM_20948_Internal_Gyr, ICM_20948_Internal_Mst
@@ -1096,7 +1079,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), FSS);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: setFullScale returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1107,7 +1089,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = setDLPFcfg((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), dlpcfg);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: setDLPFcfg returned: " << statusString(retval)  << std::endl;
     status = retval;
     return status;
   }
@@ -1115,7 +1096,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = enableDLPF(ICM_20948_Internal_Acc, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: enableDLPF (Acc) returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1123,7 +1103,6 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = enableDLPF(ICM_20948_Internal_Gyr, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: enableDLPF (Gyr) returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1243,11 +1222,6 @@ ICM_20948_Status_e ICM_20948::enableDMPSensor(enum inv_icm20948_sensor sensor, b
   if (_device._dmp_firmware_available == true) // Should we attempt to enable the sensor?
   {
     status = inv_icm20948_enable_dmp_sensor(&_device, sensor, enable == true ? 1 : 0);
-    std::cout << "ICM_20948::enableDMPSensor:  _enabled_Android_0: " << _device._enabled_Android_0 
-              << "  _enabled_Android_1: " << _device._enabled_Android_1 
-              << "  _dataOutCtl1: " << _device._dataOutCtl1 
-              << "  _dataOutCtl2: " << _device._dataOutCtl2 
-              << "  _dataRdyStatus: " << _device._dataRdyStatus << std::endl;
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
@@ -1258,9 +1232,6 @@ ICM_20948_Status_e ICM_20948::enableDMPSensorInt(enum inv_icm20948_sensor sensor
   if (_device._dmp_firmware_available == true) // Should we attempt to enable the sensor interrupt?
   {
     status = inv_icm20948_enable_dmp_sensor_int(&_device, sensor, enable == true ? 1 : 0);
-    std::cout << "ICM_20948::enableDMPSensorInt:  _enabled_Android_intr_0: " << _device._enabled_Android_intr_0 
-              << "  _enabled_Android_intr_1: " << _device._enabled_Android_intr_1 
-              << "  _dataIntrCtl: " << _device._dataIntrCtl << std::endl;
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
@@ -1316,7 +1287,6 @@ ICM_20948_Status_e ICM_20948::setGyroSF(unsigned char div, int gyro_level)
   if (_device._dmp_firmware_available == true) // Should we attempt to set the Gyro SF?
   {
     status = inv_icm20948_set_gyro_sf(&_device, div, gyro_level);
-    std::cout << "ICM_20948::setGyroSF:  pll: " << _device._gyroSFpll << "  Gyro SF is: " << _device._gyroSF << std::endl;
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
@@ -1589,19 +1559,13 @@ ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
 
   if (tries == MAX_MAGNETOMETER_STARTS)
   {
-    std::cout << "ICM_20948::startupMagnetometer: reached MAX_MAGNETOMETER_STARTS (" << MAX_MAGNETOMETER_STARTS << "). Returning ICM_20948_Stat_WrongID" << std::endl;
     status = ICM_20948_Stat_WrongID;
     return status;
-  }
-  else
-  {
-    std::cout << "ICM_20948::startupMagnetometer: successful magWhoIAm after " << tries << ((tries == 1) ? " try" : " tries") << std::endl;
   }
 
   //Return now if minimal is true. The mag will be configured manually for the DMP
   if (minimal) // Return now if minimal is true
   {
-    std::cout << "ICM_20948::startupMagnetometer: minimal startup complete!" << std::endl;
     return status;
   }
 
@@ -1612,7 +1576,6 @@ ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
   retval = writeMag(AK09916_REG_CNTL2, (uint8_t *)&reg);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupMagnetometer: writeMag returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1620,7 +1583,6 @@ ICM_20948_Status_e ICM_20948::startupMagnetometer(bool minimal)
   retval = i2cControllerConfigurePeripheral(0, MAG_AK09916_I2C_ADDR, AK09916_REG_ST1, 9, true, true, false, false, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupMagnetometer: i2cMasterConfigurePeripheral returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1639,7 +1601,6 @@ ICM_20948_Status_e ICM_20948::magWhoIAm(void)
   retval = status;
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::magWhoIAm: whoiam1: " << whoiam1  << " (should be 72) readMag set status to: " << statusString(status) << std::endl;
     return retval;
   }
   whoiam2 = readMag(AK09916_REG_WIA2);
@@ -1648,7 +1609,6 @@ ICM_20948_Status_e ICM_20948::magWhoIAm(void)
   retval = status;
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::magWhoIAm: whoiam1: " << whoiam1  << " (should be 72) whoiam2: " << whoiam2 << " (should be 9) readMag set status to: " << statusString(status) << std::endl;
     return retval;
   }
 
@@ -1659,7 +1619,6 @@ ICM_20948_Status_e ICM_20948::magWhoIAm(void)
     return status;
   }
 
-  std::cout << "ICM_20948::magWhoIAm: whoiam1: " << whoiam1 << " (should be 72) whoiam2: " << whoiam2 << " (should be 9). Returning ICM_20948_Stat_WrongID" << std::endl;
   retval = ICM_20948_Stat_WrongID;
   status = retval;
   return status;
@@ -1680,7 +1639,6 @@ ICM_20948_Status_e ICM_20948_write_I2C(uint8_t reg, uint8_t *data, uint32_t len,
   else {
     return ICM_20948_Stat_Err;
   }
-  // std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
 ICM_20948_Status_e ICM_20948_read_I2C(uint8_t reg, uint8_t *buff, uint32_t len, void *user)
