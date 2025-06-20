@@ -1096,9 +1096,7 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), FSS);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: setFullScale returned: " <<
-    statusString(retval)
-    << std::endl;
+    std::cout << "ICM_20948::startupDefault: setFullScale returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1109,9 +1107,7 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = setDLPFcfg((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), dlpcfg);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: setDLPFcfg returned: " <<
-    statusString(retval)
-    << std::endl;
+    std::cout << "ICM_20948::startupDefault: setDLPFcfg returned: " << statusString(retval)  << std::endl;
     status = retval;
     return status;
   }
@@ -1119,9 +1115,7 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = enableDLPF(ICM_20948_Internal_Acc, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: enableDLPF (Acc) returned: " <<
-    statusString(retval)
-    << std::endl;
+    std::cout << "ICM_20948::startupDefault: enableDLPF (Acc) returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
@@ -1129,9 +1123,7 @@ ICM_20948_Status_e ICM_20948::startupDefault(bool minimal)
   retval = enableDLPF(ICM_20948_Internal_Gyr, false);
   if (retval != ICM_20948_Stat_Ok)
   {
-    std::cout << "ICM_20948::startupDefault: enableDLPF (Gyr) returned: " <<
-    statusString(retval)
-    << std::endl;
+    std::cout << "ICM_20948::startupDefault: enableDLPF (Gyr) returned: " << statusString(retval) << std::endl;
     status = retval;
     return status;
   }
