@@ -1,5 +1,5 @@
 
-//#define QUAT_ANIMATION // Uncomment this line to output data in the correct format for ZaneL's Node.js Quaternion animation tool: https://github.com/ZaneL/quaternion_sensor_3d_nodejs
+// #define QUAT_ANIMATION // Uncomment this line to output data in the correct format for ZaneL's Node.js Quaternion animation tool: https://github.com/ZaneL/quaternion_sensor_3d_nodejs
 #include <iostream>
 #include <iomanip>
 #include <math.h>
@@ -34,24 +34,24 @@ int main()
   //    INV_ICM20948_SENSOR_ORIENTATION                 (32-bit 9-axis quaternion + heading accuracy)
 
   // Enable the DMP orientation sensor
-  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION) == ICM_20948_Stat_Ok);
+  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_GEOMAGNETIC_ROTATION_VECTOR) == ICM_20948_Stat_Ok);
 
   // Enable any additional sensors / features
-  //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
-  //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
-  //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED) == ICM_20948_Stat_Ok);
+  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_GYROSCOPE) == ICM_20948_Stat_Ok);
+  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_ACCELEROMETER) == ICM_20948_Stat_Ok);
+  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_GEOMAGNETIC_FIELD) == ICM_20948_Stat_Ok);
 
   // Configuring DMP to output data at multiple ODRs:
   // DMP is capable of outputting multiple sensor data at different rates to FIFO.
   // Setting value can be calculated as follows:
   // Value = (DMP running rate / ODR ) - 1
   // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
-  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Quat9, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Cpass, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Cpass_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Geomag, 1) == ICM_20948_Stat_Ok); // Set to the maximum
+  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Accel, 1) == ICM_20948_Stat_Ok); // Set to the maximum
+  // success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro, 1) == ICM_20948_Stat_Ok); // Set to the maximum
+  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, 1) == ICM_20948_Stat_Ok); // Set to the maximum
+  // success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Cpass, 1) == ICM_20948_Stat_Ok); // Set to the maximum
+  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Cpass_Calibr, 1) == ICM_20948_Stat_Ok); // Set to the maximum
 
   // Enable the FIFO
   success &= (myICM.enableFIFO() == ICM_20948_Stat_Ok);
@@ -93,17 +93,18 @@ int main()
       //if ( data.header < 0x10) SERIAL_PORT.print( "0" );
       //SERIAL_PORT.println( data.header, HEX );
 
-      if ((data.header & DMP_header_bitmap_Quat9) > 0) // We have asked for orientation data so we should receive Quat9
+      if ((data.header & DMP_header_bitmap_Geomag) > 0) // We have asked for orientation data so we should receive Quat9
       {
         // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
         // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
         // The quaternion data is scaled by 2^30.
 
         // Scale to +/- 1
-        double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
-        double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
-        double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q1 = ((double)data.Geomag.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q2 = ((double)data.Geomag.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+        double q3 = ((double)data.Geomag.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
         double q0 = std::sqrt(1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
+        double accuracy = (double)data.Geomag.Data.Accuracy;
 
         double qw = q0; // See issue #145 - thank you @Gord1
         double qx = q2;
@@ -127,16 +128,29 @@ int main()
         double yaw = atan2(t3, t4) * 180.0 / M_PI;
 
   #ifdef QUAT_ANIMATION
-        std::cout << std::setprecision(3) << "Q1:" << q1 << " Q2:" << q2 << " Q3:" << q3 << " Accuracy:" << data.Quat9.Data.Accuracy << std::endl;
+        std::cout << std::setprecision(3) << "Q1:" << q1 << " Q2:" << q2 << " Q3:" << q3 << " Accuracy:" << accuracy << std::endl;
   #else
-        std::cout << std::setprecision(3) << "Roll:" << roll << " Pitch:" << pitch << " Yaw:" << yaw << std::endl;
+        std::cout << std::setprecision(9) << "Roll:" << roll << "\tPitch:" << pitch << "\tYaw:" << yaw << std::endl;
   #endif
       }
+
+      if((data.header & DMP_header_bitmap_Accel) > 0) {
+        std::cout << std::setprecision(9) << "Accel\tX: " << data.Raw_Accel.Data.X << "\tY: " << data.Raw_Accel.Data.Y << "\tZ: " << data.Raw_Accel.Data.Z << std::endl;
+      }
+      
+      if((data.header & DMP_header_bitmap_Gyro_Calibr) > 0) {
+        std::cout << std::setprecision(9) << "Gyro\tX: " << data.Raw_Gyro.Data.X << "\tY: " << data.Raw_Gyro.Data.Y << "\tZ: " << data.Raw_Gyro.Data.Z << std::endl;
+      }
+        
+      if((data.header & DMP_header_bitmap_Compass_Calibr) > 0) {
+        std::cout << std::setprecision(9) << "Mag\tX: " << data.Compass_Calibr.Data.X << "\tY: " << data.Compass_Calibr.Data.Y << "\tZ: " << data.Compass_Calibr.Data.Z << std::endl;
+      }
+
     }
 
     if (myICM.status != ICM_20948_Stat_FIFOMoreDataAvail) // If more data is available then we should read it right away - and not delay
     {
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
   }
 }
