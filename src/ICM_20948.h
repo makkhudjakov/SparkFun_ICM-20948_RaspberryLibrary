@@ -152,8 +152,9 @@ public:
     MagZ = CPASS_BIAS_Z
   };
 
-  ICM_20948_Status_e setBias(Bias type, int32_t newValue);
-  ICM_20948_Status_e getBias(Bias type, int32_t* newValue);
+  //Set and get bias for accel in g, for gyro in °/s, for mag in uT
+  ICM_20948_Status_e setBias(Bias type, double newValue);
+  ICM_20948_Status_e getBias(Bias type, double* bias);
 
   // Done:
   //  Configure DMP start address through PRGM_STRT_ADDRH/PRGM_STRT_ADDRL

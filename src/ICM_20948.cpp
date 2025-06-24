@@ -149,25 +149,37 @@ float ICM_20948::getGyrDPS(int16_t axis_val)
   }
 }
 
-ICM_20948_Status_e ICM_20948::setBias(ICM_20948::Bias type, int32_t newValue)
+ICM_20948_Status_e ICM_20948::setBias(ICM_20948::Bias type, double newValue)
 {
   if (_device._dmp_firmware_available == true) // Is DMP supported?
   {
+    int32_t regValue;
+    // 2^12 (FSR 4g) for accel, 2^15 for gyro, in uT scaled by 2^16 for compass.
+    if(type == Bias::AccelX || type == Bias::AccelY || type == Bias::AccelX) {
+      regValue = static_cast<int32_t>(newValue * 4096.0);
+    }
+    else if(type == Bias::GyroX || type == Bias::GyroY || type == Bias::GyroZ) {
+      regValue = static_cast<int32_t>(newValue * 32768.0);
+    }
+    else if(type == Bias::MagX || type == Bias::MagY || type == Bias::MagZ) {
+      regValue = static_cast<int32_t>(newValue * 65536.0);
+    }
     unsigned char bias_reg[4];
-    bias_reg[0] = (unsigned char)(newValue >> 24);
-    bias_reg[1] = (unsigned char)(newValue >> 16);
-    bias_reg[2] = (unsigned char)(newValue >> 8);
-    bias_reg[3] = (unsigned char)(newValue & 0xff);
+    bias_reg[0] = (unsigned char)(regValue >> 24);
+    bias_reg[1] = (unsigned char)(regValue >> 16);
+    bias_reg[2] = (unsigned char)(regValue >> 8);
+    bias_reg[3] = (unsigned char)(regValue & 0xff);
     status = inv_icm20948_write_mems(&_device, static_cast<unsigned short>(type), 4, (const unsigned char*)&bias_reg);
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
 }
 
-ICM_20948_Status_e ICM_20948::getBias(ICM_20948::Bias type, int32_t* bias)
+ICM_20948_Status_e ICM_20948::getBias(ICM_20948::Bias type, double* bias)
 {
   if (_device._dmp_firmware_available == true) // Is DMP supported?
   {
+    
     unsigned char bias_data[4] = { 0 };
     status = inv_icm20948_read_mems(&_device, static_cast<unsigned short>(type), 4, bias_data);
     union {
@@ -175,7 +187,16 @@ ICM_20948_Status_e ICM_20948::getBias(ICM_20948::Bias type, int32_t* bias)
       uint32_t unsigned32;
     } signedUnsigned32;
     signedUnsigned32.unsigned32 = (((uint32_t)bias_data[0]) << 24) | (((uint32_t)bias_data[1]) << 16) | (((uint32_t)bias_data[2]) << 8) | (bias_data[3]);
-    *bias = signedUnsigned32.signed32; // Convert from unsigned to signed with no cast ambiguity
+    // 2^12 (FSR 4g) for accel, 2^15 for gyro, in uT scaled by 2^16 for compass.
+    if(type == Bias::AccelX || type == Bias::AccelY || type == Bias::AccelX) {
+      *bias = static_cast<double>(signedUnsigned32.signed32 / 4096);
+    }
+    else if(type == Bias::GyroX || type == Bias::GyroY || type == Bias::GyroZ) {
+      *bias = static_cast<double>(signedUnsigned32.signed32 / 32768);
+    }
+    else if(type == Bias::MagX || type == Bias::MagY || type == Bias::MagZ) {
+      *bias = static_cast<double>(signedUnsigned32.signed32 / 65536);
+    }
     return status;
   }
   return ICM_20948_Stat_DMPNotSupported;
